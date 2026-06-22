@@ -1,0 +1,184 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS Variables ──────────────────────────────────────────────────────── */
+:root {
+  --radius: 0.75rem;
+  --font-inter: 'Inter', sans-serif;
+  --font-rajdhani: 'Rajdhani', sans-serif;
+  --font-jetbrains: 'JetBrains Mono', monospace;
+}
+
+/* ─── Base Styles ────────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+  border-color: #2A2A3A;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #0A0A0F;
+  color: #ffffff;
+  font-family: var(--font-inter);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #12121A;
+}
+::-webkit-scrollbar-thumb {
+  background: #FF6B00;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #FF9500;
+}
+
+/* ─── Selection ──────────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(255, 107, 0, 0.3);
+  color: #FFD700;
+}
+
+/* ─── Typography ─────────────────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-rajdhani);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ─── PlayHive Brand Components ──────────────────────────────────────────── */
+@layer components {
+  /* Buttons */
+  .btn-primary {
+    @apply relative inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-black
+    bg-brand-gradient transition-all duration-300
+    hover:shadow-orange-glow hover:scale-105 active:scale-95
+    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100;
+  }
+
+  .btn-secondary {
+    @apply relative inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-white
+    bg-brand-card border border-brand-border transition-all duration-300
+    hover:border-brand-orange hover:bg-brand-card/80 active:scale-95;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white/70
+    transition-all duration-200 hover:text-white hover:bg-white/5;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-brand-card border border-brand-border rounded-2xl shadow-card
+    transition-all duration-300;
+  }
+
+  .card-hover {
+    @apply card hover:border-brand-orange/50 hover:shadow-card-hover hover:-translate-y-1;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full px-4 py-3 rounded-xl bg-brand-surface border border-brand-border text-white
+    placeholder:text-white/30 focus:outline-none focus:border-brand-orange focus:ring-1
+    focus:ring-brand-orange/50 transition-all duration-200;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .badge-orange {
+    @apply badge bg-brand-orange/20 text-brand-amber border border-brand-orange/30;
+  }
+
+  .badge-gold {
+    @apply badge bg-brand-gold/20 text-brand-gold border border-brand-gold/30;
+  }
+
+  .badge-green {
+    @apply badge bg-success/20 text-success border border-success/30;
+  }
+
+  .badge-red {
+    @apply badge bg-danger/20 text-danger border border-danger/30;
+  }
+
+  /* Section */
+  .section {
+    @apply py-16 md:py-24;
+  }
+
+  .container {
+    @apply mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-brand-gradient bg-clip-text text-transparent;
+  }
+
+  /* Glow effect */
+  .glow-orange {
+    @apply shadow-orange-glow;
+  }
+
+  /* Stat block */
+  .stat-card {
+    @apply card p-6 text-center;
+  }
+
+  .stat-value {
+    @apply text-4xl font-display font-bold gradient-text;
+  }
+
+  .stat-label {
+    @apply text-sm text-white/50 mt-1;
+  }
+
+  /* Tier badge */
+  .tier-conqueror { @apply badge bg-red-900/30 text-red-400 border border-red-800/50; }
+  .tier-ace { @apply badge bg-purple-900/30 text-purple-400 border border-purple-800/50; }
+  .tier-crown { @apply badge bg-yellow-900/30 text-yellow-400 border border-yellow-800/50; }
+  .tier-diamond { @apply badge bg-cyan-900/30 text-cyan-400 border border-cyan-800/50; }
+  .tier-platinum { @apply badge bg-teal-900/30 text-teal-400 border border-teal-800/50; }
+  .tier-gold { @apply badge bg-amber-900/30 text-amber-400 border border-amber-800/50; }
+  .tier-silver { @apply badge bg-slate-700/30 text-slate-300 border border-slate-600/50; }
+  .tier-bronze { @apply badge bg-orange-900/30 text-orange-400 border border-orange-800/50; }
+
+  /* Shimmer loading skeleton */
+  .skeleton {
+    @apply bg-brand-surface rounded-lg overflow-hidden relative;
+    background: linear-gradient(
+      90deg,
+      #1A1A28 25%,
+      #2A2A3A 50%,
+      #1A1A28 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+}
+
+/* ─── Utility Overrides ──────────────────────────────────────────────────── */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .bg-noise {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E");
+  }
+}

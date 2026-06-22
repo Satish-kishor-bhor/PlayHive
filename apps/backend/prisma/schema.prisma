@@ -1,0 +1,439 @@
+// This is your Prisma schema file for PlayHive BGMI Tournament Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  PLAYER
+  ORGANIZER
+  ADMIN
+}
+
+enum KYCStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum TournamentStatus {
+  DRAFT
+  REGISTRATION_OPEN
+  REGISTRATION_CLOSED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum TournamentFormat {
+  SOLO
+  DUO
+  SQUAD
+}
+
+enum MatchMode {
+  CLASSIC
+  TDM
+  ARCADE
+  WAR_MODE
+}
+
+enum MapName {
+  ERANGEL
+  MIRAMAR
+  SANHOK
+  VIKENDI
+  NUSA
+  RONDO
+  LIVIK
+}
+
+enum TournamentType {
+  SINGLE_ELIMINATION
+  DOUBLE_ELIMINATION
+  ROUND_ROBIN
+  SWISS
+  LEAGUE
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum TeamRegistrationStatus {
+  REGISTERED
+  CHECKED_IN
+  DISQUALIFIED
+  WITHDRAWN
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum NotificationType {
+  EMAIL
+  SMS
+  PUSH
+  WHATSAPP
+}
+
+// ─────────────────────────────────────────────
+// USER & AUTH
+// ─────────────────────────────────────────────
+
+model User {
+  id                String       @id @default(uuid())
+  email             String       @unique
+  phone             String?      @unique
+  username          String       @unique
+  passwordHash      String?
+  displayName       String
+  avatarUrl         String?
+  role              UserRole     @default(PLAYER)
+  isEmailVerified   Boolean      @default(false)
+  isPhoneVerified   Boolean      @default(false)
+  isActive          Boolean      @default(true)
+  isBanned          Boolean      @default(false)
+  banReason         String?
+
+  // BGMI Profile
+  bgmiUid           String?      @unique
+  bgmiUsername      String?
+  bgmiTier          String?      // Bronze, Silver, Gold, Platinum, Diamond, Crown, Ace, Conqueror
+  bgmiVerified      Boolean      @default(false)
+  bgmiScreenshot    String?
+
+  // KYC
+  kycStatus         KYCStatus    @default(PENDING)
+  aadhaarNumber     String?
+  panNumber         String?
+  aadhaarDocUrl     String?
+  panDocUrl         String?
+  kycReviewedBy     String?
+  kycReviewedAt     DateTime?
+  kycRejectionReason String?
+
+  // Wallet
+  walletBalance     Float        @default(0)
+
+  // Meta
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  lastLoginAt       DateTime?
+
+  // Google OAuth
+  googleId          String?      @unique
+
+  // Relations
+  teamMemberships   TeamMember[]
+  ownedTeams        Team[]       @relation("TeamOwner")
+  organizedTournaments Tournament[] @relation("TournamentOrganizer")
+  payments          Payment[]
+  payouts           Payout[]
+  notifications     Notification[]
+  disputesFiled     Dispute[]    @relation("DisputeFiler")
+  refreshTokens     RefreshToken[]
+  walletTransactions WalletTransaction[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model OTPCode {
+  id        String   @id @default(uuid())
+  target    String   // email or phone
+  code      String
+  type      String   // EMAIL_VERIFY, PHONE_VERIFY, PASSWORD_RESET
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────
+// TEAMS
+// ─────────────────────────────────────────────
+
+model Team {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  tag         String       // Short tag like [PHV]
+  logoUrl     String?
+  ownerId     String
+  owner       User         @relation("TeamOwner", fields: [ownerId], references: [id])
+  members     TeamMember[]
+  registrations TournamentRegistration[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  role      String   @default("MEMBER") // CAPTAIN, MEMBER, SUBSTITUTE
+  joinedAt  DateTime @default(now())
+
+  @@unique([teamId, userId])
+}
+
+// ─────────────────────────────────────────────
+// TOURNAMENTS
+// ─────────────────────────────────────────────
+
+model Tournament {
+  id                  String              @id @default(uuid())
+  slug                String              @unique
+  name                String
+  description         String?
+  bannerUrl           String?
+  organizerId         String
+  organizer           User                @relation("TournamentOrganizer", fields: [organizerId], references: [id])
+
+  // Game settings
+  format              TournamentFormat    @default(SQUAD)
+  matchMode           MatchMode           @default(CLASSIC)
+  map                 MapName             @default(ERANGEL)
+  perspective         String              @default("TPP") // TPP or FPP
+  tournamentType      TournamentType      @default(SINGLE_ELIMINATION)
+
+  // Slots
+  maxTeams            Int                 @default(24)
+  maxPlayersPerTeam   Int                 @default(4)
+  currentTeams        Int                 @default(0)
+
+  // Entry & Prize
+  entryFee            Float               @default(0)
+  prizePool           Float               @default(0)
+  platformFeePercent  Float               @default(10)
+  perKillBonus        Float               @default(0)
+  prizeDistribution   Json?               // { "1st": 50, "2nd": 30, "3rd": 20 } in %
+
+  // Schedule
+  registrationStart   DateTime
+  registrationEnd     DateTime
+  matchStartTime      DateTime
+  matchEndTime        DateTime?
+
+  // Access
+  isPublic            Boolean             @default(true)
+  inviteCode          String?             @unique
+  rules               String?
+  status              TournamentStatus    @default(DRAFT)
+
+  // Lobby
+  lobbyId             String?
+  lobbyPassword       String?
+  lobbySetAt          DateTime?
+
+  // Points system
+  pointsTable         Json?               // Custom points config
+
+  // Meta
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  // Relations
+  registrations       TournamentRegistration[]
+  matches             Match[]
+  payments            Payment[]
+  payouts             Payout[]
+  disputes            Dispute[]
+}
+
+model TournamentRegistration {
+  id              String                  @id @default(uuid())
+  tournamentId    String
+  tournament      Tournament              @relation(fields: [tournamentId], references: [id])
+  teamId          String
+  team            Team                    @relation(fields: [teamId], references: [id])
+  status          TeamRegistrationStatus  @default(REGISTERED)
+  paymentId       String?
+  payment         Payment?                @relation(fields: [paymentId], references: [id])
+  checkedInAt     DateTime?
+  disqualifiedAt  DateTime?
+  disqualifyReason String?
+  registeredAt    DateTime                @default(now())
+
+  @@unique([tournamentId, teamId])
+}
+
+// ─────────────────────────────────────────────
+// MATCHES & RESULTS
+// ─────────────────────────────────────────────
+
+model Match {
+  id              String          @id @default(uuid())
+  tournamentId    String
+  tournament      Tournament      @relation(fields: [tournamentId], references: [id])
+  matchNumber     Int
+  round           Int             @default(1)
+  scheduledAt     DateTime
+  startedAt       DateTime?
+  endedAt         DateTime?
+  lobbyId         String?
+  lobbyPassword   String?
+  isCompleted     Boolean         @default(false)
+  screenshotUrl   String?
+  results         MatchResult[]
+  createdAt       DateTime        @default(now())
+}
+
+model MatchResult {
+  id          String   @id @default(uuid())
+  matchId     String
+  match       Match    @relation(fields: [matchId], references: [id])
+  teamId      String
+  rank        Int
+  kills       Int      @default(0)
+  damage      Float    @default(0)
+  survivalTime Int     @default(0) // in seconds
+  points      Float    @default(0)
+  killPoints  Float    @default(0)
+  totalPoints Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  @@unique([matchId, teamId])
+}
+
+// ─────────────────────────────────────────────
+// PAYMENTS & INVOICES
+// ─────────────────────────────────────────────
+
+model Payment {
+  id                String          @id @default(uuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id])
+  tournamentId      String?
+  tournament        Tournament?     @relation(fields: [tournamentId], references: [id])
+  amount            Float
+  platformFee       Float           @default(0)
+  gstAmount         Float           @default(0)
+  totalAmount       Float
+  currency          String          @default("INR")
+  status            PaymentStatus   @default(PENDING)
+
+  // Razorpay
+  razorpayOrderId   String?         @unique
+  razorpayPaymentId String?         @unique
+  razorpaySignature String?
+
+  // Invoice
+  invoiceNumber     String?         @unique
+  invoiceUrl        String?
+  invoiceGeneratedAt DateTime?
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  registrations     TournamentRegistration[]
+}
+
+model Payout {
+  id              String          @id @default(uuid())
+  userId          String
+  user            User            @relation(fields: [userId], references: [id])
+  tournamentId    String?
+  tournament      Tournament?     @relation(fields: [tournamentId], references: [id])
+  amount          Float
+  tdsAmount       Float           @default(0)
+  netAmount       Float
+  status          PayoutStatus    @default(PENDING)
+  upiId           String?
+  bankAccount     String?
+  ifscCode        String?
+  razorpayPayoutId String?
+  failureReason   String?
+  processedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model WalletTransaction {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  type        String   // CREDIT, DEBIT
+  amount      Float
+  description String
+  reference   String?
+  createdAt   DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────
+// DISPUTES
+// ─────────────────────────────────────────────
+
+model Dispute {
+  id              String          @id @default(uuid())
+  tournamentId    String
+  tournament      Tournament      @relation(fields: [tournamentId], references: [id])
+  filedById       String
+  filedBy         User            @relation("DisputeFiler", fields: [filedById], references: [id])
+  title           String
+  description     String
+  evidenceUrls    String[]
+  status          DisputeStatus   @default(OPEN)
+  resolution      String?
+  resolvedBy      String?
+  resolvedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model Notification {
+  id          String              @id @default(uuid())
+  userId      String
+  user        User                @relation(fields: [userId], references: [id])
+  type        NotificationType
+  title       String
+  message     String
+  data        Json?
+  isRead      Boolean             @default(false)
+  sentAt      DateTime?
+  createdAt   DateTime            @default(now())
+}
+
+model BannedPlayer {
+  id          String   @id @default(uuid())
+  bgmiUid     String   @unique
+  bgmiUsername String?
+  reason      String
+  bannedAt    DateTime @default(now())
+  bannedBy    String
+}
